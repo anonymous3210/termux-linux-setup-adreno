@@ -16,6 +16,10 @@ Instalador para executar um desktop Linux no Android usando **Termux:X11 + Debia
 - Termux:X11 e uma sessão gráfica escolhida no menu.
 - Driver **Turnip K11MCH1 v25.1.0-R2**, isolado no Debian/PRoot e validado por SHA-256.
 - Launchers para abrir a sessão gráfica e verificar Vulkan e OpenGL/Zink.
+- Um pacote de programas Linux: Firefox ESR, VLC, FFmpeg, Audacious, Ristretto (fotos), Git, `wget`, `curl` e Python 3 com Flask.
+- Codecs/plugins de mídia via FFmpeg e GStreamer (libav, base, good, bad, ugly e saída PulseAudio).
+- Ponte PulseAudio local do Termux para os aplicativos dentro do Debian/PRoot, além de `pavucontrol` e um verificador de áudio.
+- Uma demo Flask em `/root/demo_python/app.py`, dentro do Debian, servida na porta 5000 quando iniciada.
 
 O nome **K11MCH1** identifica o repositório de onde vem o pacote Turnip; não é um componente separado do Android. O aplicativo Winlator **não** é instalado.
 
@@ -61,13 +65,23 @@ Verificadores disponíveis:
 ```bash
 ~/verify-turnip.sh
 ~/verify-glx.sh
+~/verify-audio.sh
 ```
+
+Para iniciar a demo Flask em outro terminal do Termux:
+
+```bash
+proot-distro login debian -- /usr/bin/python3 /root/demo_python/app.py
+```
+
+Depois, abra `http://127.0.0.1:5000` no navegador. O teste de `verify-audio.sh` deve ser feito com a sessão gráfica iniciada.
 
 ## Avisos importantes
 
 - A release selecionada é **v25.1.0-R2 (2025)**; o repositório de drivers está arquivado. Isso não garante suporte a todo Adreno 6xx, kernel ou firmware.
 - O driver requer glibc. Ele é destinado ao Debian/PRoot, não a processos nativos Bionic do Termux.
 - O script não instala os antigos pacotes Mesa/Vulkan nativos do Termux e não os remove se já estiverem instalados.
+- A instalação acrescenta vários pacotes e pode consumir bastante espaço. A disponibilidade de codecs depende do formato e dos repositórios Debian habilitados.
 - A simulação `llvmpipe` confirma somente a abertura do XFCE e do terminal com renderização por CPU. **Não confirma a inicialização do Turnip/KGSL em Snapdragon/Adreno real.**
 
 ## Fontes

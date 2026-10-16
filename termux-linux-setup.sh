@@ -77,6 +77,7 @@ install_host_dependencies() {
     run pkg install -y x11-repo
     run pkg install -y proot-distro curl tar xz-utils binutils
     run pkg install -y termux-x11-nightly
+    run pkg install -y pulseaudio
 }
 
 ensure_debian() {
@@ -126,6 +127,14 @@ prepare_wcp() {
 
 install_debian_packages() {
     local -a desktop_packages=()
+    local -a application_packages=(
+        firefox-esr vlc ffmpeg
+        gstreamer1.0-libav gstreamer1.0-plugins-base
+        gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+        gstreamer1.0-plugins-ugly gstreamer1.0-pulseaudio
+        ristretto audacious pavucontrol pulseaudio-utils
+        git wget curl python3 python3-flask
+    )
     case "$DESKTOP_CHOICE" in
         1) desktop_packages=(xfce4 xfce4-terminal) ;;
         2) desktop_packages=(lxqt qterminal) ;;
@@ -135,10 +144,28 @@ install_debian_packages() {
     esac
     run proot-distro login "$DEBIAN" -- /usr/bin/apt-get update
     run proot-distro login "$DEBIAN" -- /usr/bin/apt-get install -y --no-install-recommends \
-        "${desktop_packages[@]}" dbus-x11 \
+        "${desktop_packages[@]}" "${application_packages[@]}" dbus-x11 \
         libvulkan1 libdrm2 libxcb-dri3-0 libxcb1 libx11-xcb1 \
         libxcb-present0 libxcb-sync1 libxcb-randr0 libxcb-shm0 \
         libexpat1 libstdc++6 zlib1g vulkan-tools mesa-utils
+}
+
+install_python_demo() {
+    cat > "$WORK_DIR/demo_python_app.py" <<'PY'
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.get("/")
+def index():
+    return "Linux no Termux/PRoot: Flask está funcionando.\n"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+PY
+    run proot-distro login "$DEBIAN" -- /bin/mkdir -p /root/demo_python
+    run proot-distro copy "$WORK_DIR/demo_python_app.py" "$DEBIAN:/root/demo_python/app.py"
+    log 'Demo Python/Flask criado em /root/demo_python/app.py (porta 5000).'
 }
 
 install_k11_driver() {
@@ -187,6 +214,15 @@ set -Eeuo pipefail
 LOG="$HOME/termux-linux-session.log"
 mkdir -p "$HOME/.local/run"
 echo "$(date '+%F %T') Iniciando Debian/__DESKTOP_NAME__ em Termux:X11 :1" | tee -a "$LOG"
+echo 'Iniciando PulseAudio para aplicativos de áudio...' | tee -a "$LOG"
+if ! pulseaudio --check >/dev/null 2>&1; then
+  pulseaudio --start --exit-idle-time=-1 >>"$LOG" 2>&1 || echo 'Aviso: PulseAudio não iniciou; a sessão gráfica seguirá sem áudio.' | tee -a "$LOG"
+fi
+if pulseaudio --check >/dev/null 2>&1 && command -v pactl >/dev/null 2>&1; then
+  if ! pactl list short modules 2>/dev/null | grep -q module-native-protocol-tcp; then
+    pactl load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1 >/dev/null 2>>"$LOG" || echo 'Aviso: não foi possível habilitar a ponte PulseAudio local.' | tee -a "$LOG"
+  fi
+fi
 if ! pgrep -x termux-x11 >/dev/null 2>&1; then
   termux-x11 :1 >>"$LOG" 2>&1 &
   echo $! > "$HOME/.local/run/termux-x11.pid"
@@ -201,6 +237,7 @@ exec proot-distro login debian --shared-tmp --shared-home \
   --env=MESA_LOADER_DRIVER_OVERRIDE=zink \
   --env=TU_DEBUG=noconform \
   --env=ZINK_DESCRIPTORS=lazy \
+  --env=PULSE_SERVER=tcp:127.0.0.1 \
   -- /usr/bin/dbus-launch --exit-with-session __DESKTOP_COMMAND__
 START
     sed -i "s|__DESKTOP_NAME__|$DESKTOP_NAME|g; s|__DESKTOP_COMMAND__|$desktop_command|g" "$HOME/start-linux.sh"
@@ -237,6 +274,14 @@ exec proot-distro login debian --shared-tmp \
   -- /usr/bin/glxinfo -B
 VERIFY
     chmod 700 "$HOME/verify-glx.sh"
+    cat > "$HOME/verify-audio.sh" <<'VERIFY'
+#!/data/data/com.termux/files/usr/bin/bash
+set -Eeuo pipefail
+exec proot-distro login debian --shared-tmp \
+  --env=PULSE_SERVER=tcp:127.0.0.1 \
+  -- /usr/bin/pactl info
+VERIFY
+    chmod 700 "$HOME/verify-audio.sh"
 }
 
 main() {
@@ -247,8 +292,10 @@ main() {
     prepare_wcp
     install_debian_packages
     install_k11_driver
+    install_python_demo
     write_launchers
-    log 'Preparação concluída. Verificação Vulkan: ~/verify-turnip.sh; OpenGL/Zink com X11 aberto: ~/verify-glx.sh.'
+    log 'Preparação concluída. Firefox ESR, VLC/FFmpeg/codecs, Audacious, Ristretto, Git, Python/Flask e demo instalados no Debian.'
+    log 'Verificações: ~/verify-turnip.sh; ~/verify-glx.sh com X11 aberto; ~/verify-audio.sh com a sessão iniciada.'
     log 'Teste visual requer Android, GPU Adreno e o app Termux:X11 aberto; não é atestado pela simulação.'
 }
 
