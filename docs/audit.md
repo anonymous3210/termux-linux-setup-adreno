@@ -31,7 +31,7 @@ O Android Emulator instalado é a versão 37.2.12.0, com `adb` 37.0.1. A imagem 
 
 ## Artefatos
 
-- Script corrigido: [`termux-linux-setup-fixed.sh`](../scripts/termux-linux-setup.sh)
+- Script corrigido na raiz do repositório: [`termux-linux-setup.sh`](../termux-linux-setup.sh)
 - Captura do XFCE com renderização por software: [`termux-linux-software-simulation.png`](termux-linux-software-simulation.png)
 
 ## Referências

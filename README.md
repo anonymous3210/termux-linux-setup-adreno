@@ -29,7 +29,7 @@ O menu oferece `1) XFCE4`, `2) LXQt`, `3) MATE` e `4) KDE Plasma` (padrão: XFCE
 Baixe este repositório no Termux, confirme que está no Termux oficial e execute:
 
 ```bash
-bash scripts/termux-linux-setup.sh
+bash termux-linux-setup.sh
 ```
 
 O script verifica arquitetura/GPU, apresenta o menu de desktop e grava um log em `~/termux-linux-setup.log`. Em execução não interativa, usa XFCE4 por padrão; também é possível definir `DESKTOP_CHOICE=1`, `2`, `3` ou `4`. **Em todos os casos, a etapa de instalação do K11 roda obrigatoriamente.** O script não apaga um rootfs Debian já existente. O driver é isolado em `/opt/k11-turnip` dentro do Debian.
