@@ -10,6 +10,9 @@ readonly DEBIAN='debian'
 readonly WORK_DIR="${HOME}/.cache/k11-turnip-v25.1.0-r2"
 readonly LOG_FILE="${LOG_FILE:-$HOME/termux-linux-setup.log}"
 readonly TEST_MODE="${TEST_MODE:-0}"
+DESKTOP_CHOICE="${DESKTOP_CHOICE:-}"
+DESKTOP_NAME=''
+DESKTOP_COMMAND=''
 
 log() { printf '%s %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOG_FILE"; }
 fatal() { log "ERRO: $*"; exit 1; }
@@ -45,7 +48,31 @@ check_environment() {
     log "Início; release=$RELEASE_TAG; modo de simulação=$TEST_MODE"
 }
 
+choose_desktop() {
+    local choice="${DESKTOP_CHOICE:-}"
+    if [[ -z "$choice" ]]; then
+        printf '\nEscolha o ambiente gráfico:\n  1) XFCE4 (padrão)\n  2) LXQt\n  3) MATE\n  4) KDE Plasma\n'
+        if [[ -t 0 ]]; then
+            read -r -p 'Número [1]: ' choice || fatal 'Não foi possível ler a opção de desktop.'
+            choice="${choice:-1}"
+        else
+            choice=1
+            log 'Entrada não interativa; selecionando XFCE4 (opção 1).'
+        fi
+    fi
+    case "$choice" in
+        1) DESKTOP_NAME='XFCE4'; DESKTOP_COMMAND='/usr/bin/startxfce4' ;;
+        2) DESKTOP_NAME='LXQt'; DESKTOP_COMMAND='/usr/bin/startlxqt' ;;
+        3) DESKTOP_NAME='MATE'; DESKTOP_COMMAND='/usr/bin/mate-session' ;;
+        4) DESKTOP_NAME='KDE Plasma'; DESKTOP_COMMAND='/usr/bin/startplasma-x11' ;;
+        *) fatal "Opção inválida: $choice (use 1, 2, 3 ou 4)." ;;
+    esac
+    DESKTOP_CHOICE="$choice"
+    log "Desktop selecionado: $DESKTOP_NAME (opção $DESKTOP_CHOICE); K11 Turnip será instalado obrigatoriamente."
+}
+
 install_host_dependencies() {
+    log 'Não instalar/remover Mesa/Vulkan Bionic legado; K11 será instalado no Debian/PRoot glibc.'
     run pkg update -y
     run pkg install -y x11-repo
     run pkg install -y proot-distro curl tar xz-utils binutils
@@ -98,9 +125,17 @@ prepare_wcp() {
 }
 
 install_debian_packages() {
+    local -a desktop_packages=()
+    case "$DESKTOP_CHOICE" in
+        1) desktop_packages=(xfce4 xfce4-terminal) ;;
+        2) desktop_packages=(lxqt qterminal) ;;
+        3) desktop_packages=(mate-desktop-environment-core mate-session-manager mate-terminal) ;;
+        4) desktop_packages=(plasma-workspace plasma-desktop kwin-x11 konsole) ;;
+        *) fatal "Desktop não selecionado antes da instalação: ${DESKTOP_CHOICE:-vazio}" ;;
+    esac
     run proot-distro login "$DEBIAN" -- /usr/bin/apt-get update
     run proot-distro login "$DEBIAN" -- /usr/bin/apt-get install -y --no-install-recommends \
-        xfce4 xfce4-terminal dbus-x11 \
+        "${desktop_packages[@]}" dbus-x11 \
         libvulkan1 libdrm2 libxcb-dri3-0 libxcb1 libx11-xcb1 \
         libxcb-present0 libxcb-sync1 libxcb-randr0 libxcb-shm0 \
         libexpat1 libstdc++6 zlib1g vulkan-tools mesa-utils
@@ -138,12 +173,20 @@ JSON
 }
 
 write_launchers() {
+    local desktop_command
+    case "$DESKTOP_CHOICE" in
+        1) desktop_command='/usr/bin/startxfce4' ;;
+        2) desktop_command='/usr/bin/startlxqt' ;;
+        3) desktop_command='/usr/bin/mate-session' ;;
+        4) desktop_command='/usr/bin/startplasma-x11' ;;
+        *) fatal "Não foi possível gerar launcher: opção inválida (${DESKTOP_CHOICE:-vazio})." ;;
+    esac
     cat > "$HOME/start-linux.sh" <<'START'
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 LOG="$HOME/termux-linux-session.log"
 mkdir -p "$HOME/.local/run"
-echo "$(date '+%F %T') Iniciando Debian/XFCE em Termux:X11 :1" | tee -a "$LOG"
+echo "$(date '+%F %T') Iniciando Debian/__DESKTOP_NAME__ em Termux:X11 :1" | tee -a "$LOG"
 if ! pgrep -x termux-x11 >/dev/null 2>&1; then
   termux-x11 :1 >>"$LOG" 2>&1 &
   echo $! > "$HOME/.local/run/termux-x11.pid"
@@ -158,8 +201,9 @@ exec proot-distro login debian --shared-tmp --shared-home \
   --env=MESA_LOADER_DRIVER_OVERRIDE=zink \
   --env=TU_DEBUG=noconform \
   --env=ZINK_DESCRIPTORS=lazy \
-  -- /usr/bin/dbus-launch --exit-with-session /usr/bin/startxfce4
+  -- /usr/bin/dbus-launch --exit-with-session __DESKTOP_COMMAND__
 START
+    sed -i "s|__DESKTOP_NAME__|$DESKTOP_NAME|g; s|__DESKTOP_COMMAND__|$desktop_command|g" "$HOME/start-linux.sh"
     chmod 700 "$HOME/start-linux.sh"
     cat > "$HOME/stop-linux.sh" <<'STOP'
 #!/data/data/com.termux/files/usr/bin/bash
@@ -170,7 +214,7 @@ if [[ -f "$pidfile" ]]; then
   if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then kill -TERM "$pid"; fi
   rm -f "$pidfile"
 fi
-echo 'Encerrado apenas o Termux:X11 iniciado por este launcher. Feche a sessão XFCE no Debian.'
+echo 'Encerrado apenas o Termux:X11 iniciado por este launcher. Feche a sessão gráfica no Debian.'
 STOP
     chmod 700 "$HOME/stop-linux.sh"
     cat > "$HOME/verify-turnip.sh" <<'VERIFY'
@@ -197,6 +241,7 @@ VERIFY
 
 main() {
     check_environment
+    choose_desktop
     install_host_dependencies
     ensure_debian
     prepare_wcp
