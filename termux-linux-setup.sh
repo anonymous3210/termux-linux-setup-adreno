@@ -135,19 +135,71 @@ install_debian_packages() {
         ristretto audacious pavucontrol pulseaudio-utils
         git wget curl python3 python3-flask
     )
+    local -a appearance_packages=(
+        desktop-base arc-theme papirus-icon-theme
+        gnome-themes-extra gtk2-engines-murrine
+        fonts-noto-core fonts-noto-color-emoji
+    )
     case "$DESKTOP_CHOICE" in
-        1) desktop_packages=(xfce4 xfce4-terminal) ;;
-        2) desktop_packages=(lxqt qterminal) ;;
-        3) desktop_packages=(mate-desktop-environment-core mate-session-manager mate-terminal) ;;
-        4) desktop_packages=(plasma-workspace plasma-desktop kwin-x11 konsole) ;;
+        1) desktop_packages=(xfce4 xfce4-terminal xfce4-goodies) ;;
+        2) desktop_packages=(lxqt qterminal lxqt-themes) ;;
+        3) desktop_packages=(mate-desktop-environment-core mate-session-manager mate-terminal mate-themes) ;;
+        4) desktop_packages=(plasma-workspace plasma-desktop kwin-x11 konsole breeze-icon-theme) ;;
         *) fatal "Desktop não selecionado antes da instalação: ${DESKTOP_CHOICE:-vazio}" ;;
     esac
     run proot-distro login "$DEBIAN" -- /usr/bin/apt-get update
     run proot-distro login "$DEBIAN" -- /usr/bin/apt-get install -y --no-install-recommends \
-        "${desktop_packages[@]}" "${application_packages[@]}" dbus-x11 \
+        "${desktop_packages[@]}" "${application_packages[@]}" "${appearance_packages[@]}" dbus-x11 \
         libvulkan1 libdrm2 libxcb-dri3-0 libxcb1 libx11-xcb1 \
         libxcb-present0 libxcb-sync1 libxcb-randr0 libxcb-shm0 \
         libexpat1 libstdc++6 zlib1g vulkan-tools mesa-utils
+}
+
+configure_appearance() {
+    local xfce_config_dir="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
+    local apply_script="$HOME/.local/bin/termux-linux-apply-appearance.sh"
+    local autostart_file="$HOME/.config/autostart/termux-linux-appearance.desktop"
+    if [[ "$DESKTOP_CHOICE" != 1 ]]; then
+        log 'Temas e wallpapers instalados; escolha-os pelo painel de aparência do desktop selecionado.'
+        return 0
+    fi
+    if [[ -e "$xfce_config_dir/xsettings.xml" || -e "$xfce_config_dir/xfce4-desktop.xml" ]]; then
+        log 'Configuração XFCE pessoal existente preservada; tema e wallpaper não serão alterados.'
+        return 0
+    fi
+    if [[ -e "$apply_script" || -e "$autostart_file" ]]; then
+        log 'Autostart de aparência já existe; preservado sem sobrescrever.'
+        return 0
+    fi
+    mkdir -p "$(dirname "$apply_script")" "$(dirname "$autostart_file")" "$HOME/.local/share"
+    cat > "$apply_script" <<'APPEARANCE'
+#!/bin/sh
+set -eu
+marker="$HOME/.local/share/termux-linux-appearance-applied"
+[ -e "$marker" ] && exit 0
+exec >>"$HOME/termux-linux-appearance.log" 2>&1
+echo "$(date '+%F %T') applying XFCE appearance defaults"
+sleep 2
+xfconf-query -c xsettings -p /Net/ThemeName --create --type string --set 'Arc-Dark'
+xfconf-query -c xsettings -p /Net/IconThemeName --create --type string --set 'Papirus-Dark'
+xfconf-query -c xsettings -p /Gtk/FontName --create --type string --set 'Noto Sans 10'
+xfconf-query -c xfwm4 -p /general/theme --create --type string --set 'Arc-Dark'
+echo 'XFCE GTK/window theme=Arc-Dark icons=Papirus-Dark font=Noto Sans; existing wallpaper left unchanged.'
+mkdir -p "$(dirname "$marker")"
+touch "$marker"
+APPEARANCE
+    chmod 700 "$apply_script"
+    cat > "$autostart_file" <<'DESKTOP'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Termux Linux appearance defaults
+Exec=/bin/sh -c "exec $HOME/.local/bin/termux-linux-apply-appearance.sh"
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+DESKTOP
+    log 'XFCE: Arc-Dark, Papirus-Dark e Noto Sans serão aplicados no primeiro login; o wallpaper atual não será alterado.'
 }
 
 install_python_demo() {
@@ -291,6 +343,7 @@ main() {
     ensure_debian
     prepare_wcp
     install_debian_packages
+    configure_appearance
     install_k11_driver
     install_python_demo
     write_launchers

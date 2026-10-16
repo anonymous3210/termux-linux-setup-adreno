@@ -6,9 +6,9 @@ Instalador para executar um desktop Linux no Android usando **Termux:X11 + Debia
 
 ## Aparência do desktop
 
-![Simulação do XFCE e terminal em fundo preto, com renderização por software llvmpipe](termux-linux-software-simulation.png)
+![Simulação do XFCE com tema Arc-Dark, terminal, fundo preto e renderização por software llvmpipe](termux-linux-software-simulation.png)
 
-*Captura do teste de interface: XFCE, terminal e comando respondendo em uma sessão X11 simulada por software.*
+*Captura da simulação: tema Arc-Dark e ícones Papirus aplicados, fundo preto preservado, XFCE e terminal respondendo sob Xvfb/llvmpipe. Não é uma captura de um celular Adreno.*
 
 ## O que o instalador configura
 
@@ -20,6 +20,7 @@ Instalador para executar um desktop Linux no Android usando **Termux:X11 + Debia
 - Codecs/plugins de mídia via FFmpeg e GStreamer (libav, base, good, bad, ugly e saída PulseAudio).
 - Ponte PulseAudio local do Termux para os aplicativos dentro do Debian/PRoot, além de `pavucontrol` e um verificador de áudio.
 - Uma demo Flask em `/root/demo_python/app.py`, dentro do Debian, servida na porta 5000 quando iniciada.
+- Pacote visual com wallpapers Debian, tema Arc, ícones Papirus, temas específicos para LXQt/MATE/KDE e fontes Noto.
 
 O nome **K11MCH1** identifica o repositório de onde vem o pacote Turnip; não é um componente separado do Android. O aplicativo Winlator **não** é instalado.
 
@@ -33,6 +34,8 @@ O nome **K11MCH1** identifica o repositório de onde vem o pacote Turnip; não �
 | 4 | KDE Plasma |
 
 **O Turnip é configurado obrigatoriamente em qualquer opção.** A seleção muda somente os pacotes e o comando que inicia o desktop.
+
+No XFCE, quando ainda não há configuração pessoal, o instalador define **Arc-Dark**, **Papirus-Dark** e fonte Noto Sans. O wallpaper atual não é alterado; os wallpapers Debian ficam disponíveis para seleção manual. Configurações XFCE existentes são preservadas. Nas opções LXQt, MATE e KDE, os respectivos temas são instalados e podem ser selecionados no painel de aparência do desktop.
 
 ## Instalação
 
@@ -81,7 +84,7 @@ Depois, abra `http://127.0.0.1:5000` no navegador. O teste de `verify-audio.sh` 
 - A release selecionada é **v25.1.0-R2 (2025)**; o repositório de drivers está arquivado. Isso não garante suporte a todo Adreno 6xx, kernel ou firmware.
 - O driver requer glibc. Ele é destinado ao Debian/PRoot, não a processos nativos Bionic do Termux.
 - O script não instala os antigos pacotes Mesa/Vulkan nativos do Termux e não os remove se já estiverem instalados.
-- A instalação acrescenta vários pacotes e pode consumir bastante espaço. A disponibilidade de codecs depende do formato e dos repositórios Debian habilitados.
+- Os pacotes de ícones, wallpapers, fontes, codecs e aplicativos ocupam espaço adicional; o tema Papirus é especialmente grande. A disponibilidade de codecs depende do formato e dos repositórios Debian habilitados.
 - A simulação `llvmpipe` confirma somente a abertura do XFCE e do terminal com renderização por CPU. **Não confirma a inicialização do Turnip/KGSL em Snapdragon/Adreno real.**
 
 ## Fontes
@@ -90,3 +93,5 @@ Depois, abra `http://127.0.0.1:5000` no navegador. O teste de `verify-audio.sh` 
 - [Release K11MCH1 Turnip v25.1.0-R2](https://github.com/K11MCH1/WinlatorTurnipDrivers/releases/tag/winlator_v25.1_r2)
 - [Documentação Termux:X11](https://github.com/termux/termux-x11)
 - [Documentação proot-distro](https://github.com/termux/proot-distro)
+- [Wallpapers e artwork Debian (`desktop-base`)](https://packages.debian.org/trixie/desktop-base)
+- [Tema Arc (`arc-theme`)](https://packages.debian.org/trixie/arc-theme) e [ícones Papirus](https://packages.debian.org/trixie/papirus-icon-theme)
